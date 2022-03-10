@@ -3,7 +3,7 @@ Trade bot.
 Version 4.
 """
 
-#github sucks.
+#github sucks. no you trenotn
 
 import pip._vendor.requests as requests
 
