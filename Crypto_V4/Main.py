@@ -3,6 +3,7 @@ Trade bot.
 Version 4.
 """
 
+#github sucks.
 
 import pip._vendor.requests as requests
 
