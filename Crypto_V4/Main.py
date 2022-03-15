@@ -266,8 +266,12 @@ class Kucoin(Exchange):
         return 
     
     def getprice(self, coin):
-        #TODO:
-        return
+        if "-" not in coin.ticker:
+            pair = coin.ticker[:3] + "-" + coin.ticker[3:]
+        else:
+            pair = coin.ticker
+        resp = requests.get("https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=" + pair)  
+        return resp.text
     
     def buycoin(self, coin):
         #TODO:
@@ -301,6 +305,9 @@ k = Kraken()
 k.addCoin(btc_usd)
 c = CryptoDotCom()
 c.addCoin(btc_usdt)
+ku = Kucoin()
+ku.addCoin(btc_usdt)
 print(cb.getprice(btc_usd))
 print(k.getprice(btc_usd))
 print(c.getprice(btc_usdt))
+print(ku.getprice(btc_usdt))
