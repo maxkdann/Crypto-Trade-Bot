@@ -175,8 +175,13 @@ class CryptoDotCom(Exchange):
         return 
     
     def getprice(self, coin):
-        #TODO:
-        return
+        if "_" not in coin.ticker:
+            pair = coin.ticker[:3] + "_" + coin.ticker[3:]
+        else:
+            pair = coin.ticker
+        resp = requests.get("https://api.crypto.com/v2/public/get-ticker?instrument_name=" + pair)
+        
+        return resp.text
     
     def buycoin(self, coin):
         #TODO:
@@ -282,14 +287,20 @@ class Kucoin(Exchange):
 
 class Coin:
     def __init__(self, ticker):
-        assert len(ticker) == 6 and "-" not in ticker, "ERROR (Coin.init): Ticker must be 6 chars, no dash."
+        #assert len(ticker) == 6 and "-" not in ticker, "ERROR (Coin.init): Ticker must be 6 chars, no dash."
+        #coin pair can be more than 6 chars
         self.ticker = ticker
         return 
 
 cb = Coinbase()
-btc = Coin("BTCUSD")
-cb.addCoin(btc)
-print(cb.getprice(btc))
+btc_usd = Coin("BTCUSD")
+btc_usdt = Coin("BTCUSDT")
+cb.addCoin(btc_usd)
+
 k = Kraken()
-k.addCoin(btc)
-print(k.getprice(btc))
+k.addCoin(btc_usd)
+c = CryptoDotCom()
+c.addCoin(btc_usdt)
+print(cb.getprice(btc_usd))
+print(k.getprice(btc_usd))
+print(c.getprice(btc_usdt))
