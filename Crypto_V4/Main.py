@@ -3,6 +3,7 @@ Trade bot.
 Version 4.
 """
 import pip._vendor.requests as requests
+import time
 
 """------------------------------------
 Exchange
@@ -307,7 +308,11 @@ c = CryptoDotCom()
 c.addCoin(btc_usdt)
 ku = Kucoin()
 ku.addCoin(btc_usdt)
-print(cb.getprice(btc_usd))
-print(k.getprice(btc_usd))
-print(c.getprice(btc_usdt))
-print(ku.getprice(btc_usdt))
+
+t1 = time.time()
+print("coinbase: " + cb.getprice(btc_usd))
+print("kraken:   " + k.getprice(btc_usd))
+print("cdc:      " + c.getprice(btc_usdt))
+print("kucoin:   " + ku.getprice(btc_usdt))
+t2 = time.time()
+print("lag: " + str(t2 - t1))
