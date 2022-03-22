@@ -4,12 +4,13 @@ Version 4.
 """
 import pip._vendor.requests as requests
 import time
-import thread
-
+from multiprocessing.pool import ThreadPool
 """------------------------------------
 Exchange
 Superclass for the four exchange subclasses.
 ------------------------------------"""
+
+
 class Exchange:
     
     def __init__(self, name):
@@ -27,7 +28,6 @@ class Exchange:
         self.name = name
         self.coins = {}
         return
-    
 
     def getname(self):
         """
@@ -42,7 +42,6 @@ class Exchange:
         """
         return self.name
 
-
     def setname(self, name):
         """
         ------------------------------------
@@ -56,7 +55,6 @@ class Exchange:
         """
         self.name = name
         return
-
     
     def addCoin(self, coin):
         """
@@ -73,7 +71,6 @@ class Exchange:
         self.coins[coin.ticker] = coin
         return
 
-
     def removeCoin(self, coin):
         """
         ------------------------------------
@@ -88,7 +85,6 @@ class Exchange:
         self.coins.pop(coin.ticker)
         return
 
-
     def listCoins(self):
         """
         ------------------------------------
@@ -100,12 +96,55 @@ class Exchange:
             coins (list of coin) - 
         ------------------------------------
         """
-        #TODO:
+        # TODO:
         return
+    
+    def getGreatestSpread(self, coin=None):
+        """
+        ------------------------------------
+        Queries all 4 exchanges to find the largest price differential
+        Args:
+            coin (Coin object) - specific coin to query, if no coin specified query for all coins
+        Returns:
+            coin (Coin object) - coin with the largest spread
+            low_price (float) - low price
+            high_price (float) - high price
+            low_exchange (Exchange object) - exchange with the low price
+            high_exchange(Exchange object) - exchange with the high price
+        ------------------------------------
+        """
+        # create exchange objects
+        coinbase = Coinbase()
+        kraken = Kraken()
+        cryptodotcom = CryptoDotCom()
+        kucoin = Kucoin()
+        # add coin to exchange object
+        btc_usd = Coin("BTCUSD")
+        btc_usdt = Coin("BTCUSDT")
+        coinbase.addCoin(btc_usd)
+        kraken.addCoin(btc_usd)       
+        cryptodotcom.addCoin(btc_usdt)       
+        kucoin.addCoin(btc_usdt)
+        # query prices
+        t1 = time.time()
+        cb_buy_price, cb_sell_price = coinbase.getprice(btc_usd)
+        kr_buy_price, kr_sell_price = kraken.getprice(btc_usd)
+        cr_buy_price,cr_sell_price = cryptodotcom.getprice(btc_usdt)
+        ku_buy_price, ku_sell_price = kucoin.getprice(btc_usdt)  
+        t2 = time.time()
+        
+        print("Coinbase - buy: {} sell: {}".format(cb_buy_price, cb_sell_price))
+        print("Kraken - buy: {} sell: {}".format(kr_buy_price, kr_sell_price))
+        print("Crypto.com - buy: {} sell: {}".format(cr_buy_price, cr_sell_price))
+        print("Kucoin - buy: {} sell: {}".format(ku_buy_price, ku_sell_price))
+        
+        print("lag: " + str(t2 - t1))
 
 """------------------------------------
 Child of Exchange, connects to kraken.com
 ------------------------------------"""
+
+
 class Kraken(Exchange):
 
     def __init__(self):
@@ -122,7 +161,6 @@ class Kraken(Exchange):
         self.name = "Kraken"
         self.coins = {}
         return 
-    
 
     def getprice(self, coin):
         """
@@ -136,29 +174,32 @@ class Kraken(Exchange):
         ------------------------------------
         """
         resp = requests.get('https://api.kraken.com/0/public/Ticker?pair=' + coin.ticker)
-        #TODO: instead of returning entire response,
-        #figure out what we need from ABCV etc...
-        return resp.text
+        resp = resp.text.split("\"")
+        buy = float(resp[9])
+        sell = float(resp[17])
+        return buy, sell
     
     def buycoin(self, coin, volume):
-        #TODO:
+        # TODO:
         return 
     
     def sellcoin(self, coin, volume):
-        #TODO:
+        # TODO:
         return
     
     def queryholdings(self, coin):
-        #TODO:
+        # TODO:
         return
     
     def queryAllHoldings(self):
-        #TODO:
+        # TODO:
         return
 
 """------------------------------------
 Child of Exchange, connects to crypto.com
 ------------------------------------"""
+
+
 class CryptoDotCom(Exchange):
 
     def __init__(self):
@@ -182,28 +223,32 @@ class CryptoDotCom(Exchange):
         else:
             pair = coin.ticker
         resp = requests.get("https://api.crypto.com/v2/public/get-ticker?instrument_name=" + pair)
-        
-        return resp.text
+        resp = resp.text.split("\"")
+        buy = float(resp[20][1:-1])
+        sell = float(resp[24][1:-1])
+        return buy,sell
     
     def buycoin(self, coin):
-        #TODO:
+        # TODO:
         return 
     
     def sellcoin(self, coin):
-        #TODO:
+        # TODO:
         return
     
     def queryholdings(self, coin):
-        #TODO:
+        # TODO:
         return
     
     def queryAllHoldings(self):
-        #TODO:
+        # TODO:
         return
 
 """------------------------------------
 Child of Exchange, connects to coinbase.com
 ------------------------------------"""
+
+
 class Coinbase(Exchange):
 
     def __init__(self):
@@ -220,36 +265,44 @@ class Coinbase(Exchange):
         self.name = "Coinbase"
         self.coins = {}
         return 
-    
 
     def getprice(self, coin):
+        # fix ticker symbol
         if "-" not in coin.ticker:
             pair = coin.ticker[:3] + "-" + coin.ticker[3:]
         else:
             pair = coin.ticker
-        resp = requests.get("https://api.coinbase.com/v2/prices/" + pair + "/buy")
-        
-        return resp.text
+        # query price
+        buy = requests.get("https://api.coinbase.com/v2/prices/" + pair + "/buy")
+        sell = requests.get("https://api.coinbase.com/v2/prices/" + pair + "/sell")
+        # standardize output
+        buy = buy.text.split("\"")
+        sell = sell.text.split("\"")
+        buy = float(buy[-2])
+        sell = float(sell[-2])
+        return buy, sell
     
     def buycoin(self, coin):
-        #TODO:
+        # TODO:
         return 
     
     def sellcoin(self, coin):
-        #TODO:
+        # TODO:
         return
     
     def queryholdings(self, coin):
-        #TODO:
+        # TODO:
         return
     
     def queryAllHoldings(self):
-        #TODO:
+        # TODO:
         return
 
 """------------------------------------
 Child of Exchange, connects to kucoin.com
 ------------------------------------"""
+
+
 class Kucoin(Exchange):
    
     def __init__(self):
@@ -273,31 +326,36 @@ class Kucoin(Exchange):
         else:
             pair = coin.ticker
         resp = requests.get("https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=" + pair)  
-        return resp.text
+        resp = resp.text.split("\"")
+        buy = float(resp[15])
+        return buy, buy
     
     def buycoin(self, coin):
-        #TODO:
+        # TODO:
         return 
     
     def sellcoin(self, coin):
-        #TODO:
+        # TODO:
         return
     
     def queryholdings(self, coin):
-        #TODO:
+        # TODO:
         return
     
     def queryAllHoldings(self):
-        #TODO:
+        # TODO:
         return
 
+
 class Coin:
+
     def __init__(self, ticker):
-        #assert len(ticker) == 6 and "-" not in ticker, "ERROR (Coin.init): Ticker must be 6 chars, no dash."
-        #coin pair can be more than 6 chars
+        # assert len(ticker) == 6 and "-" not in ticker, "ERROR (Coin.init): Ticker must be 6 chars, no dash."
+        # coin pair can be more than 6 chars
         self.ticker = ticker
         return 
-
+        
+'''
 cb = Coinbase()
 btc_usd = Coin("BTCUSD")
 btc_usdt = Coin("BTCUSDT")
@@ -317,3 +375,6 @@ print("cdc:      " + c.getprice(btc_usdt))
 print("kucoin:   " + ku.getprice(btc_usdt))
 t2 = time.time()
 print("lag: " + str(t2 - t1))
+'''
+e = Exchange("Master")
+e.getGreatestSpread()
