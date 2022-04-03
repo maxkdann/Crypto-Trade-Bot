@@ -4,9 +4,9 @@ Version 4.
 """
 import pip._vendor.requests as requests
 import time
-from multiprocessing.pool import ThreadPool
+import threading
 from copy import deepcopy
-from scipy.io.matlab.miobase import arr_dtype_number
+#from scipy.io.matlab.miobase import arr_dtype_number
 """------------------------------------
 Exchange
 Superclass for the four exchange subclasses.
@@ -100,89 +100,7 @@ class Exchange:
         """
         # TODO:
         return
-    
-    def getGreatestSpread(self, coin=None):
-        """
-        ------------------------------------
-        Queries all 4 exchanges to find the largest price differential
-        Args:
-            coin (Coin object) - specific coin to query, if no coin specified query for all coins
-        Returns:
-            coin (Coin object) - coin with the largest spread
-            min_buy (float) - minimum purchase price
-            max_sell (float) - maximum sell price
-            low_exchange (Exchange object) - exchange with the low price
-            high_exchange(Exchange object) - exchange with the high price
-        ------------------------------------
-        """
-        # create exchange objects
-        coinbase = Coinbase()
-        kraken = Kraken()
-        cryptodotcom = CryptoDotCom()
-        kucoin = Kucoin()
-        # add coin to exchange object
-        btc_usd = Coin("BTCUSD")
-        btc_usdt = Coin("BTCUSDT")
-        coinbase.addCoin(btc_usd)
-        kraken.addCoin(btc_usd)       
-        cryptodotcom.addCoin(btc_usdt)       
-        kucoin.addCoin(btc_usdt)
-        # query prices
-        t1 = time.time()
-        cb_buy_price, cb_sell_price = coinbase.getprice(btc_usd)
-        kr_buy_price, kr_sell_price = kraken.getprice(btc_usd)
-        cr_buy_price,cr_sell_price = cryptodotcom.getprice(btc_usdt)
-        ku_buy_price, ku_sell_price = kucoin.getprice(btc_usdt)  
-        t2 = time.time()
-        #print prices, lag will be fixes once multithreading is implemented
-        print("Coinbase - buy: {} sell: {}".format(cb_buy_price, cb_sell_price))
-        print("Kraken - buy: {} sell: {}".format(kr_buy_price, kr_sell_price))
-        print("Crypto.com - buy: {} sell: {}".format(cr_buy_price, cr_sell_price))
-        print("Kucoin - buy: {} sell: {}".format(ku_buy_price, ku_sell_price))
-        print("lag: " + str(t2 - t1))
-        #find largest difference
-        buy_prices = [cb_buy_price,kr_buy_price,cr_buy_price,ku_buy_price]
-        sell_prices = [cb_sell_price,kr_sell_price,cr_sell_price,ku_sell_price]
-        min_buy = min(buy_prices)
-        max_sell = max(sell_prices)
-        exchanges = [coinbase,kraken,cryptodotcom,kucoin]
-        low_exchange_index = buy_prices.index(min_buy)
-        high_exchange_index = sell_prices.index(max_sell)
-        #in the event that the largest spread is on one exchange pick the next value
-        if low_exchange_index==high_exchange_index:
-            second_min_difference = abs(self.getSecondMinimum(buy_prices)-max_sell)
-            second_max_difference = abs(self.getSecondMaximum(sell_prices)-min_buy)
-            if second_max_difference>second_min_difference:
-                min_buy = self.getSecondMinimum(buy_prices)
-                low_exchange_index = buy_prices.index(min_buy)
-            else:
-                max_sell = self.getSecondMaximum(sell_prices)
-                high_exchange_index = sell_prices.index(max_sell)
-        low_exchange = exchanges[low_exchange_index]
-        high_exchange = exchanges[high_exchange_index]
-        print()
-        print("Buy on {} for {}".format(low_exchange.name,min_buy))
-        print("Sell on {} for {}".format(high_exchange.name,max_sell))
-        print("Profit: {:.2f}".format(max_sell-min_buy))
-        
-            
-    def getSecondMinimum(self,arr):
-        """
-        Returns the second smallest value in an array
-        """
-        a = deepcopy(arr)
-        minimum = min(a)
-        a.pop(minimum)
-        return min(a)
-    
-    def getSecondMaximum(self,arr):
-        """
-        Returns the second largest value in an array
-        """
-        a = deepcopy(arr)
-        maximum = max(a)
-        a.pop(maximum)
-        return max(a)
+
         
 
 """------------------------------------
@@ -327,6 +245,22 @@ class Coinbase(Exchange):
         sell = float(sell[-2])
         return buy, sell
     
+    def getpricetest(self, coin):
+        # fix ticker symbol
+        if "-" not in coin:
+            pair = coin[:3] + "-" + coin[3:]
+        else:
+            pair = coin.ticker
+        # query price
+        buy = requests.get("https://api.coinbase.com/v2/prices/" + pair + "/buy")
+        sell = requests.get("https://api.coinbase.com/v2/prices/" + pair + "/sell")
+        # standardize output
+        buy = buy.text.split("\"")
+        sell = sell.text.split("\"")
+        buy = float(buy[-2])
+        sell = float(sell[-2])
+        return buy, sell
+    
     def buycoin(self, coin):
         # TODO:
         return 
@@ -421,5 +355,81 @@ print("kucoin:   " + ku.getprice(btc_usdt))
 t2 = time.time()
 print("lag: " + str(t2 - t1))
 '''
-e = Exchange("Master")
-e.getGreatestSpread()
+def getGreatestSpread(coin=None):
+    """
+    ------------------------------------
+    Queries all 4 exchanges to find the largest price differential
+    Args:
+        coin (Coin object) - specific coin to query, if no coin specified query for all coins
+    Returns:
+        coin (Coin object) - coin with the largest spread
+        min_buy (float) - minimum purchase price
+        max_sell (float) - maximum sell price
+        low_exchange (Exchange object) - exchange with the low price
+        high_exchange(Exchange object) - exchange with the high price
+    ------------------------------------
+    """
+    # create exchange objects
+    coinbase = Coinbase()
+    kraken = Kraken()
+    cryptodotcom = CryptoDotCom()
+    kucoin = Kucoin()
+    # add coin to exchange object
+    btc_usd = Coin("BTCUSD")
+    btc_usdt = Coin("BTCUSDT")
+    coinbase.addCoin(btc_usd)
+    kraken.addCoin(btc_usd)       
+    cryptodotcom.addCoin(btc_usdt)       
+    kucoin.addCoin(btc_usdt)
+    
+    # query prices
+    # t1 = time.time()
+    # cb_buy_price, cb_sell_price = coinbase.getprice(btc_usd)
+    # kr_buy_price, kr_sell_price = kraken.getprice(btc_usd)
+    # cr_buy_price,cr_sell_price = cryptodotcom.getprice(btc_usdt)
+    # ku_buy_price, ku_sell_price = kucoin.getprice(btc_usdt)  
+    # t2 = time.time()
+    
+    #query prices with multithreading
+    t1 = time.time()
+    tuple1 = ("btc_usd",)
+    cb_buy_price, cb_sell_price = _thread.start_new_thread(coinbase.getprice, tuple1)
+    kr_buy_price, kr_sell_price = _thread.start_new_thread(kraken.getprice, (btc_usd))
+    cr_buy_price,cr_sell_price = _thread.start_new_thread(cryptodotcom.getprice, (btc_usd))
+    ku_buy_price, ku_sell_price = _thread.start_new_thread(kucoin.getprice, (btc_usd))
+    t2 = time.time()
+    
+    #query prices with multithreading again.
+    # t1 = time.time()
+    # tuple1 = ("btc_usd",)
+    # cb_buy_price, cb_sell_price = _thread.start_new_thread(coinbase.getprice, tuple1)
+    # kr_buy_price, kr_sell_price = _thread.start_new_thread(kraken.getprice, (btc_usd))
+    # cr_buy_price,cr_sell_price = _thread.start_new_thread(cryptodotcom.getprice, (btc_usd))
+    # ku_buy_price, ku_sell_price = _thread.start_new_thread(kucoin.getprice, (btc_usd))
+    # t2 = time.time()
+    
+    
+    #print prices, lag will be fixes once multithreading is implemented
+    print("Coinbase - buy: {} sell: {}".format(cb_buy_price, cb_sell_price))
+    print("Kraken - buy: {} sell: {}".format(kr_buy_price, kr_sell_price))
+    print("Crypto.com - buy: {} sell: {}".format(cr_buy_price, cr_sell_price))
+    print("Kucoin - buy: {} sell: {}".format(ku_buy_price, ku_sell_price))
+    print("lag: " + str(t2 - t1))
+    
+    #find largest difference
+    buy_prices = [cb_buy_price,kr_buy_price,cr_buy_price,ku_buy_price]
+    sell_prices = [cb_sell_price,kr_sell_price,cr_sell_price,ku_sell_price]
+    min_buy = min(buy_prices)
+    max_sell = max(sell_prices)
+    exchanges = [coinbase,kraken,cryptodotcom,kucoin]
+    low_exchange_index = buy_prices.index(min_buy)
+    high_exchange_index = sell_prices.index(max_sell)
+    
+    low_exchange = exchanges[low_exchange_index]
+    high_exchange = exchanges[high_exchange_index]
+    print()
+    print("Buy on {} for {}".format(low_exchange.name,min_buy))
+    print("Sell on {} for {}".format(high_exchange.name,max_sell))
+    print("Profit: {:.2f}".format(max_sell-min_buy))
+
+getGreatestSpread()
