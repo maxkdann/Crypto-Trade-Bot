@@ -329,9 +329,12 @@ class Kucoin(Exchange):
 class Coin:
 
     def __init__(self, ticker):
-        # assert len(ticker) == 6 and "-" not in ticker, "ERROR (Coin.init): Ticker must be 6 chars, no dash."
-        # coin pair can be more than 6 chars
-        self.ticker = ticker
+        assert len(ticker) > 4, "Invalid Coin name"
+        assert ticker[len(ticker)-4:].upper() == "USDT", "Coin must trade with USDT"
+        if "-" not in ticker:
+            self.ticker = (ticker[:(len(ticker)-4)] + "-" + ticker[len(ticker)-4:]).upper()
+        else:
+            self.ticker = ticker.upper()
         return 
         
 '''
@@ -432,4 +435,9 @@ def getGreatestSpread(coin=None):
     print("Sell on {} for {}".format(high_exchange.name,max_sell))
     print("Profit: {:.2f}".format(max_sell-min_buy))
 
-getGreatestSpread()
+
+
+#getGreatestSpread()
+
+coin1 = Coin("btcusdt")
+print(coin1.ticker)
