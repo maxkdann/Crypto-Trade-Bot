@@ -4,13 +4,12 @@ Version 4.
 """
 import pip._vendor.requests as requests
 import time
-import threading
 from copy import deepcopy
-#from scipy.io.matlab.miobase import arr_dtype_number
 """------------------------------------
 Exchange
 Superclass for the four exchange subclasses.
 ------------------------------------"""
+
 
 
 class Exchange:
@@ -309,6 +308,38 @@ class Kucoin(Exchange):
         buy = float(resp[15])
         return buy, buy
     
+    def getAllPrices(self):
+        """
+        ----------------------------------------------------------
+        Kucoin allows you to get ticker information for all the coins listed on their
+        site at once by calling allTickers
+        ----------------------------------------------------------
+        """
+        resp = requests.get("https://api.kucoin.com/api/v1/market/allTickers")
+        resp = resp.text
+        resp = resp[66:]
+        resp = resp.split("\"")
+        parsedData = self.parseData(resp)
+        return parsedData
+    
+    def parseData(self,raw_data):
+        """
+        parses the data returned by getAllPrices into a nice list of coins and buy/sell prices
+        """
+        parsedData = []
+        i = 0
+        temp = []
+        while i<len(raw_data):
+            if raw_data[i]=="symbolName":
+                temp.append(raw_data[i+2])
+                temp.append(raw_data[i+6])
+                temp.append(raw_data[i+10])
+                parsedData.append(temp)
+                temp = []
+            i+=1
+            
+        return parsedData
+    
     def buycoin(self, coin):
         # TODO:
         return 
@@ -337,31 +368,13 @@ class Coin:
             self.ticker = ticker.upper()
         return 
         
-'''
-cb = Coinbase()
-btc_usd = Coin("BTCUSD")
-btc_usdt = Coin("BTCUSDT")
-cb.addCoin(btc_usd)
-k = Kraken()
-k.addCoin(btc_usd)
-c = CryptoDotCom()
-c.addCoin(btc_usdt)
-ku = Kucoin()
-ku.addCoin(btc_usdt)
-t1 = time.time()
-print("coinbase: " + cb.getprice(btc_usd))
-print("kraken:   " + k.getprice(btc_usd))
-print("cdc:      " + c.getprice(btc_usdt))
-print("kucoin:   " + ku.getprice(btc_usdt))
-t2 = time.time()
-print("lag: " + str(t2 - t1))
-'''
-def getGreatestSpread(coin=None):
+
+def getGreatestSpread(coin):
     """
     ------------------------------------
     Queries all 4 exchanges to find the largest price differential
     Args:
-        coin (Coin object) - specific coin to query, if no coin specified query for all coins
+        coin (Coin object) - specific coin to query
     Returns:
         coin (Coin object) - coin with the largest spread
         min_buy (float) - minimum purchase price
@@ -375,41 +388,21 @@ def getGreatestSpread(coin=None):
     kraken = Kraken()
     cryptodotcom = CryptoDotCom()
     kucoin = Kucoin()
-    # add coin to exchange object
-    btc_usdt = Coin("BTCUSDT")
-    coinbase.addCoin(btc_usdt)
-    kraken.addCoin(btc_usdt)       
-    cryptodotcom.addCoin(btc_usdt)       
-    kucoin.addCoin(btc_usdt)
+    
+    #add coin to exchange objects
+    coinbase.addCoin(coin)
+    kraken.addCoin(coin)       
+    cryptodotcom.addCoin(coin)       
+    kucoin.addCoin(coin)
     
     # query prices
     t1 = time.time()
-    #cb_buy_price, cb_sell_price = coinbase.getprice(btc_usdt)
-    kr_buy_price, kr_sell_price = kraken.getprice(btc_usdt)
-    cr_buy_price,cr_sell_price = cryptodotcom.getprice(btc_usdt)
-    ku_buy_price, ku_sell_price = kucoin.getprice(btc_usdt)  
+    #cb_buy_price, cb_sell_price = coinbase.getprice(coin)
+    kr_buy_price, kr_sell_price = kraken.getprice(coin)
+    cr_buy_price,cr_sell_price = cryptodotcom.getprice(coin)
+    ku_buy_price, ku_sell_price = kucoin.getprice(coin)  
     t2 = time.time()
     
-    #query prices with multithreading
-    # t1 = time.time()
-    # tuple1 = ("btc_usd",)
-    # cb_buy_price, cb_sell_price = _thread.start_new_thread(coinbase.getprice, tuple1)
-    # kr_buy_price, kr_sell_price = _thread.start_new_thread(kraken.getprice, (btc_usd))
-    # cr_buy_price,cr_sell_price = _thread.start_new_thread(cryptodotcom.getprice, (btc_usd))
-    # ku_buy_price, ku_sell_price = _thread.start_new_thread(kucoin.getprice, (btc_usd))
-    # t2 = time.time()
-    
-    #query prices with multithreading again.
-    # t1 = time.time()
-    # tuple1 = ("btc_usd",)
-    # cb_buy_price, cb_sell_price = _thread.start_new_thread(coinbase.getprice, tuple1)
-    # kr_buy_price, kr_sell_price = _thread.start_new_thread(kraken.getprice, (btc_usd))
-    # cr_buy_price,cr_sell_price = _thread.start_new_thread(cryptodotcom.getprice, (btc_usd))
-    # ku_buy_price, ku_sell_price = _thread.start_new_thread(kucoin.getprice, (btc_usd))
-    # t2 = time.time()
-    
-    
-    #print prices, lag will be fixes once multithreading is implemented
     #print("Coinbase - buy: {} sell: {}".format(cb_buy_price, cb_sell_price))
     print("Kraken - buy: {} sell: {}".format(kr_buy_price, kr_sell_price))
     print("Crypto.com - buy: {} sell: {}".format(cr_buy_price, cr_sell_price))
@@ -432,9 +425,18 @@ def getGreatestSpread(coin=None):
     print("Sell on {} for {}".format(high_exchange.name,max_sell))
     print("Profit: {:.2f}".format(max_sell-min_buy))
 
+def main():
+    # coin1 = Coin("btcusdt")
+    # getGreatestSpread(coin1)
+    
+    #get all prices for Kucoin
+    k = Kucoin()
+    r = k.getAllPrices()
+    f = open("kucoinPrices.txt","w")
+    for line in r:
+        f.write(" ".join(line)+"\n")
+    f.close()
+    
+    
+main()
 
-
-getGreatestSpread()
-
-coin1 = Coin("btcusdt")
-print(coin1.ticker)
