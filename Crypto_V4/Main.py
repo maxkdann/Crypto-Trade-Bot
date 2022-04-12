@@ -11,7 +11,6 @@ Superclass for the four exchange subclasses.
 ------------------------------------"""
 
 
-
 class Exchange:
     
     def __init__(self, name):
@@ -100,8 +99,6 @@ class Exchange:
         # TODO:
         return
 
-        
-
 """------------------------------------
 Child of Exchange, connects to kraken.com
 ------------------------------------"""
@@ -122,6 +119,8 @@ class Kraken(Exchange):
         """
         self.name = "Kraken"
         self.coins = {}
+        self.maker_fee = 0.2
+        self.taker_fee = 0.2
         return 
 
     def getprice(self, coin):
@@ -135,7 +134,7 @@ class Kraken(Exchange):
             TODO: what are we returning?
         ------------------------------------
         """
-        pair = coin.ticker.replace("-","")
+        pair = coin.ticker.replace("-", "")
         resp = requests.get('https://api.kraken.com/0/public/Ticker?pair=' + pair)
         resp = resp.text.split("\"")
         buy = float(resp[9])
@@ -178,15 +177,17 @@ class CryptoDotCom(Exchange):
         """
         self.name = "CryptoDotCom"
         self.coins = {}
+        self.maker_fee = 0.4
+        self.taker_fee = 0.4
         return 
     
     def getprice(self, coin):
-        pair = coin.ticker.replace("-","_")
+        pair = coin.ticker.replace("-", "_")
         resp = requests.get("https://api.crypto.com/v2/public/get-ticker?instrument_name=" + pair)
         resp = resp.text.split("\"")
         buy = float(resp[20][1:-1])
         sell = float(resp[24][1:-1])
-        return buy,sell
+        return buy, sell
     
     def buycoin(self, coin):
         # TODO:
@@ -224,6 +225,8 @@ class Coinbase(Exchange):
         """
         self.name = "Coinbase"
         self.coins = {}
+        self.maker_fee = 0.4
+        self.taker_fee =  0.6
         return 
 
     def getprice(self, coin):
@@ -296,6 +299,8 @@ class Kucoin(Exchange):
         """
         self.name = "Kucoin"
         self.coins = {}
+        self.maker_fee = 0.1
+        self.taker_fee = 0.1
         return 
     
     def getprice(self, coin):
@@ -322,21 +327,21 @@ class Kucoin(Exchange):
         parsedData = self.parseData(resp)
         return parsedData
     
-    def parseData(self,raw_data):
+    def parseData(self, raw_data):
         """
         parses the data returned by getAllPrices into a nice list of coins and buy/sell prices
         """
         parsedData = []
         i = 0
         temp = []
-        while i<len(raw_data):
-            if raw_data[i]=="symbolName":
-                temp.append(raw_data[i+2])
-                temp.append(raw_data[i+6])
-                temp.append(raw_data[i+10])
+        while i < len(raw_data):
+            if raw_data[i] == "symbolName":
+                temp.append(raw_data[i + 2])
+                temp.append(raw_data[i + 6])
+                temp.append(raw_data[i + 10])
                 parsedData.append(temp)
                 temp = []
-            i+=1
+            i += 1
             
         return parsedData
     
@@ -361,9 +366,9 @@ class Coin:
 
     def __init__(self, ticker):
         assert len(ticker) > 4, "Invalid Coin name"
-        assert ticker[len(ticker)-4:].upper() == "USDT", "Coin must trade with USDT"
+        assert ticker[len(ticker) - 4:].upper() == "USDT", "Coin must trade with USDT"
         if "-" not in ticker:
-            self.ticker = (ticker[:(len(ticker)-4)] + "-" + ticker[len(ticker)-4:]).upper()
+            self.ticker = (ticker[:(len(ticker) - 4)] + "-" + ticker[len(ticker) - 4:]).upper()
         else:
             self.ticker = ticker.upper()
         return 
@@ -389,7 +394,7 @@ def getGreatestSpread(coin):
     cryptodotcom = CryptoDotCom()
     kucoin = Kucoin()
     
-    #add coin to exchange objects
+    # add coin to exchange objects
     coinbase.addCoin(coin)
     kraken.addCoin(coin)       
     cryptodotcom.addCoin(coin)       
@@ -397,46 +402,54 @@ def getGreatestSpread(coin):
     
     # query prices
     t1 = time.time()
-    #cb_buy_price, cb_sell_price = coinbase.getprice(coin)
+    # cb_buy_price, cb_sell_price = coinbase.getprice(coin)
     kr_buy_price, kr_sell_price = kraken.getprice(coin)
-    cr_buy_price,cr_sell_price = cryptodotcom.getprice(coin)
+    cr_buy_price, cr_sell_price = cryptodotcom.getprice(coin)
     ku_buy_price, ku_sell_price = kucoin.getprice(coin)  
     t2 = time.time()
     
-    #print("Coinbase - buy: {} sell: {}".format(cb_buy_price, cb_sell_price))
+    #display prices
+    # print("Coinbase - buy: {} sell: {}".format(cb_buy_price, cb_sell_price))
     print("Kraken - buy: {} sell: {}".format(kr_buy_price, kr_sell_price))
     print("Crypto.com - buy: {} sell: {}".format(cr_buy_price, cr_sell_price))
     print("Kucoin - buy: {} sell: {}".format(ku_buy_price, ku_sell_price))
     print("lag: " + str(t2 - t1))
     
-    #find largest difference
-    buy_prices = [kr_buy_price,cr_buy_price,ku_buy_price]
-    sell_prices = [kr_sell_price,cr_sell_price,ku_sell_price]
+    # find largest difference
+    buy_prices = [kr_buy_price, cr_buy_price, ku_buy_price]
+    sell_prices = [kr_sell_price, cr_sell_price, ku_sell_price]
     min_buy = min(buy_prices)
     max_sell = max(sell_prices)
-    exchanges = [coinbase,kraken,cryptodotcom,kucoin]
+    exchanges = [coinbase, kraken, cryptodotcom, kucoin]
     low_exchange_index = buy_prices.index(min_buy)
     high_exchange_index = sell_prices.index(max_sell)
     
     low_exchange = exchanges[low_exchange_index]
     high_exchange = exchanges[high_exchange_index]
+    
+    #output greatest spread
     print()
-    print("Buy on {} for {}".format(low_exchange.name,min_buy))
-    print("Sell on {} for {}".format(high_exchange.name,max_sell))
-    print("Profit: {:.2f}".format(max_sell-min_buy))
+    print("Buy on {} for {}".format(low_exchange.name, min_buy))
+    print("Sell on {} for {}".format(high_exchange.name, max_sell))
+    print("Profit: {:.2f}".format(max_sell - min_buy))
+    
+    return min_buy, max_sell,low_exchange,high_exchange
+
 
 def main():
-    # coin1 = Coin("btcusdt")
-    # getGreatestSpread(coin1)
+    coin1 = Coin("btcusdt")
+    getGreatestSpread(coin1)
     
-    #get all prices for Kucoin
+    # get all prices for Kucoin
+    """
     k = Kucoin()
     r = k.getAllPrices()
     f = open("kucoinPrices.txt","w")
     for line in r:
         f.write(" ".join(line)+"\n")
     f.close()
-    
+    """
+
     
 main()
 
