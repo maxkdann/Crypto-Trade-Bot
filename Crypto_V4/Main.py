@@ -98,6 +98,8 @@ class Exchange:
         """
         # TODO:
         return
+    
+    
 
 """------------------------------------
 Child of Exchange, connects to kraken.com
@@ -140,6 +142,9 @@ class Kraken(Exchange):
         buy = float(resp[9])
         sell = float(resp[17])
         return buy, sell
+    
+    def getFees(self):
+        return self.maker_fee, self.taker_fee
     
     def buycoin(self, coin, volume):
         # TODO:
@@ -188,6 +193,9 @@ class CryptoDotCom(Exchange):
         buy = float(resp[20][1:-1])
         sell = float(resp[24][1:-1])
         return buy, sell
+    
+    def getFees(self):
+        return self.maker_fee, self.taker_fee
     
     def buycoin(self, coin):
         # TODO:
@@ -262,6 +270,9 @@ class Coinbase(Exchange):
         buy = float(buy[-2])
         sell = float(sell[-2])
         return buy, sell
+    
+    def getFees(self):
+        return self.maker_fee, self.taker_fee
     
     def buycoin(self, coin):
         # TODO:
@@ -344,6 +355,9 @@ class Kucoin(Exchange):
             i += 1
             
         return parsedData
+    
+    def getFees(self):
+        return self.maker_fee, self.taker_fee
     
     def buycoin(self, coin):
         # TODO:
