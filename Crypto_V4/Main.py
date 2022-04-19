@@ -26,6 +26,8 @@ class Exchange:
         """
         self.name = name
         self.coins = {}
+        self.maker_fee = -1
+        self.taker_fee = -1
         return
 
     def getname(self):
@@ -97,6 +99,32 @@ class Exchange:
         """
         # TODO:
         return
+    
+    def getFees(self):
+        """
+        ------------------------------------
+        Returns the maker and taker fees of a given exchange
+        Args:
+            None.
+        Returns:
+            maker fee and taker fee
+        ------------------------------------
+        """
+        return self.maker_fee, self.taker_fee
+    
+    def calculateFees(self, volume):
+        """
+        ------------------------------------
+        calculate the fees for a given trade
+        Args:
+            volume (float) - amount of a certain coin to be traded
+        Returns:
+            maker_fee (float) - fee for being the maker of this trade
+            taker_fee (float) - fee for being the taker of this trade
+        ------------------------------------
+        """
+        maker_fee, taker_fee = self.getFees()
+        return maker_fee * volume, taker_fee * volume
 
 """------------------------------------
 Child of Exchange, connects to gemini.com
@@ -134,17 +162,21 @@ class Gemini(Exchange):
         ------------------------------------
         """
         pair = coin.replace("-", "")
+        pair = pair.lower()
         try:
             resp = requests.get('https://api.gemini.com/v1/pubticker/' + pair)
         except:
             print("Error occured fetching Gemini prices for "+ pair)
         resp = resp.text.split("\"")
-        buy = float(resp[3])
-        sell = float(resp[7])
+        if resp[7]=="Bad Request":
+            print("The pair "+ pair+" does not exist on Gemini")
+            buy = -1
+            sell = -1
+        else:
+            buy = float(resp[3])
+            sell = float(resp[7])
         return buy, sell
     
-    def getFees(self):
-        return self.maker_fee, self.taker_fee
     
     def buycoin(self, coin, volume):
         # TODO:
@@ -442,11 +474,10 @@ class Kucoin(Exchange):
 def getGreatestSpread(coin=None):
     """
     ------------------------------------
-    Queries all 4 exchanges to find the largest price differential
+    Queries all 5 exchanges to find the largest price differential
     Args:
-        coin (Coin object) - specific coin to query, if no coin specified query for all coins
+        coin (string) - ticker to check spread
     Returns:
-        coin (Coin object) - coin with the largest spread
         min_buy (float) - minimum purchase price
         max_sell (float) - maximum sell price
         low_exchange (Exchange object) - exchange with the low price
@@ -458,12 +489,15 @@ def getGreatestSpread(coin=None):
     kraken = Kraken()
     cryptodotcom = CryptoDotCom()
     kucoin = Kucoin()
+    gemini = Gemini()
     
     # add coin to exchange objects
     coinbase.addCoin(coin)
     kraken.addCoin(coin)       
     cryptodotcom.addCoin(coin)       
     kucoin.addCoin(coin)
+    gemini.addCoin(coin)
+    
     
     # query prices
     t1 = time.time()
@@ -471,13 +505,15 @@ def getGreatestSpread(coin=None):
     kr_buy_price, kr_sell_price = kraken.getprice(coin)
     cr_buy_price, cr_sell_price = cryptodotcom.getprice(coin)
     ku_buy_price, ku_sell_price = kucoin.getprice(coin)  
+    g_buy_price,g_sell_price = gemini.getprice(coin)
     t2 = time.time()
     
     # display prices
-    # print("Coinbase - buy: {} sell: {}".format(cb_buy_price, cb_sell_price))
+    print("Coinbase - buy: {} sell: {}".format(cb_buy_price, cb_sell_price))
     print("Kraken - buy: {} sell: {}".format(kr_buy_price, kr_sell_price))
     print("Crypto.com - buy: {} sell: {}".format(cr_buy_price, cr_sell_price))
     print("Kucoin - buy: {} sell: {}".format(ku_buy_price, ku_sell_price))
+    print("Gemini - buy: {} sell: {}".format(g_buy_price, g_sell_price))
     print("lag: " + str(t2 - t1))
     
     # find largest difference
@@ -485,7 +521,7 @@ def getGreatestSpread(coin=None):
     sell_prices = [kr_sell_price, cr_sell_price, ku_sell_price]
     min_buy = min(buy_prices)
     max_sell = max(sell_prices)
-    exchanges = [coinbase, kraken, cryptodotcom, kucoin]
+    exchanges = [coinbase, kraken, cryptodotcom, kucoin,gemini]
     low_exchange_index = buy_prices.index(min_buy)
     high_exchange_index = sell_prices.index(max_sell)
     
