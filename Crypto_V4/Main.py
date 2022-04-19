@@ -4,9 +4,6 @@ Version 4.
 """
 import pip._vendor.requests as requests
 import time
-import threading
-from copy import deepcopy
-#from scipy.io.matlab.miobase import arr_dtype_number
 """------------------------------------
 Exchange
 Superclass for the four exchange subclasses.
@@ -70,7 +67,7 @@ class Exchange:
             None.
         ------------------------------------
         """
-        self.coins[coin.ticker] = coin
+        self.coins[coin] = 0
         return
 
     def removeCoin(self, coin):
@@ -84,7 +81,7 @@ class Exchange:
         Returns:
             None.
         ------------------------------------"""
-        self.coins.pop(coin.ticker)
+        self.coins.pop(coin)
         return
 
     def listCoins(self):
@@ -100,8 +97,6 @@ class Exchange:
         """
         # TODO:
         return
-
-
 
 """------------------------------------
 Child of Exchange, connects to gemini.com
@@ -123,6 +118,8 @@ class Gemini(Exchange):
         """
         self.name = "Gemini"
         self.coins = {}
+        self.maker_fee = 0.21
+        self.taker_fee = 0.41
         return 
 
     def getprice(self, coin):
@@ -136,12 +133,18 @@ class Gemini(Exchange):
             TODO: what are we returning?
         ------------------------------------
         """
-        pair = coin.ticker.replace("-","")
-        resp = requests.get('https://api.gemini.com/v1/pubticker/' + pair)
+        pair = coin.replace("-", "")
+        try:
+            resp = requests.get('https://api.gemini.com/v1/pubticker/' + pair)
+        except:
+            print("Error occured fetching Gemini prices for "+ pair)
         resp = resp.text.split("\"")
         buy = float(resp[3])
         sell = float(resp[7])
         return buy, sell
+    
+    def getFees(self):
+        return self.maker_fee, self.taker_fee
     
     def buycoin(self, coin, volume):
         # TODO:
@@ -158,8 +161,6 @@ class Gemini(Exchange):
     def queryAllHoldings(self):
         # TODO:
         return
-
-        
 
 """------------------------------------
 Child of Exchange, connects to kraken.com
@@ -181,6 +182,8 @@ class Kraken(Exchange):
         """
         self.name = "Kraken"
         self.coins = {}
+        self.maker_fee = 0.2
+        self.taker_fee = 0.2
         return 
 
     def getprice(self, coin):
@@ -194,12 +197,20 @@ class Kraken(Exchange):
             TODO: what are we returning?
         ------------------------------------
         """
-        pair = coin.ticker.replace("-","")
-        resp = requests.get('https://api.kraken.com/0/public/Ticker?pair=' + pair)
+        pair = coin.replace("-", "")
+        try:
+            resp = requests.get('https://api.kraken.com/0/public/Ticker?pair=' + pair)
+        except:
+            print("Error occured fetching Kraken prices for "+ pair)
         resp = resp.text.split("\"")
         buy = float(resp[9])
         sell = float(resp[17])
         return buy, sell
+    
+    
+   
+    def getFees(self):
+        return self.maker_fee, self.taker_fee
     
     def buycoin(self, coin, volume):
         # TODO:
@@ -216,7 +227,6 @@ class Kraken(Exchange):
     def queryAllHoldings(self):
         # TODO:
         return
-
 
 """------------------------------------
 Child of Exchange, connects to crypto.com
@@ -238,15 +248,23 @@ class CryptoDotCom(Exchange):
         """
         self.name = "CryptoDotCom"
         self.coins = {}
+        self.maker_fee = 0.4
+        self.taker_fee = 0.4
         return 
     
     def getprice(self, coin):
-        pair = coin.ticker.replace("-","_")
-        resp = requests.get("https://api.crypto.com/v2/public/get-ticker?instrument_name=" + pair)
+        pair = coin.replace("-", "_")
+        try:
+            resp = requests.get("https://api.crypto.com/v2/public/get-ticker?instrument_name=" + pair)
+        except:
+            print("Error occured fetching Crypto.com prices for "+ pair)
         resp = resp.text.split("\"")
         buy = float(resp[20][1:-1])
         sell = float(resp[24][1:-1])
-        return buy,sell
+        return buy, sell
+    
+    def getFees(self):
+        return self.maker_fee, self.taker_fee
     
     def buycoin(self, coin):
         # TODO:
@@ -284,45 +302,40 @@ class Coinbase(Exchange):
         """
         self.name = "Coinbase"
         self.coins = {}
+        self.maker_fee = 0.4
+        self.taker_fee = 0.6
         return 
 
     def getprice(self, coin):
         # fix ticker symbol
-        if "-" not in coin.ticker:
-            pair = coin.ticker[:3] + "-" + coin.ticker[3:]
-        else:
-            pair = coin.ticker
-        # query price
-        buy = requests.get("https://api.coinbase.com/v2/prices/" + pair + "/buy")
-        sell = requests.get("https://api.coinbase.com/v2/prices/" + pair + "/sell")
-        # standardize output
-        buy = buy.text.split("\"")
-        sell = sell.text.split("\"")
-        print(buy)
-        print(sell)
-        buy = float(buy[-2])
-        sell = float(sell[-2])
-        return buy, sell
-    
-    def getpricetest(self, coin):
-        # fix ticker symbol
         if "-" not in coin:
             pair = coin[:3] + "-" + coin[3:]
         else:
-            pair = coin.ticker
+            pair = coin
         # query price
-        buy = requests.get("https://api.coinbase.com/v2/prices/" + pair + "/buy")
-        sell = requests.get("https://api.coinbase.com/v2/prices/" + pair + "/sell")
+        try:
+            buy = requests.get("https://api.coinbase.com/v2/prices/" + pair + "/buy")
+            sell = requests.get("https://api.coinbase.com/v2/prices/" + pair + "/sell")
+        except:
+            print("Error occured fetching Coinbase prices for "+ pair)
         # standardize output
         buy = buy.text.split("\"")
         sell = sell.text.split("\"")
-        buy = float(buy[-2])
-        sell = float(sell[-2])
+        if buy[-2] or sell[-2]=="Invalid Currency":
+            print("The pair "+ pair+" does not exist on Coinbase")
+            buy = -1
+            sell = -1
+        else:
+            buy = float(buy[-2])
+            sell = float(sell[-2])
         return buy, sell
     
     def buycoin(self, coin):
         # TODO:
         return 
+    
+    def getFees(self):
+        return self.maker_fee, self.taker_fee
     
     def sellcoin(self, coin):
         # TODO:
@@ -361,11 +374,14 @@ class Kucoin(Exchange):
         return 
     
     def getprice(self, coin):
-        if "-" not in coin.ticker:
-            pair = coin.ticker[:3] + "-" + coin.ticker[3:]
+        if "-" not in coin:
+            pair = coin[:3] + "-" + coin[3:]
         else:
-            pair = coin.ticker
-        resp = requests.get("https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=" + pair)  
+            pair = coin
+        try:
+            resp = requests.get("https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=" + pair)  
+        except:
+            print("Error occured fetching Kucoin prices for "+ pair)
         resp = resp.text.split("\"")
         buy = float(resp[15])
         return buy, buy
@@ -422,23 +438,6 @@ class Kucoin(Exchange):
         return
 
 
-class Coin:
-
-    def __init__(self, ticker):
-        assert len(ticker) > 3, "Invalid Coin name"
-        assert (ticker[len(ticker)-3:].upper() == "USD") or (ticker[len(ticker)-4:].upper() == "USDT"), "Coin must trade with USDT or USD"
-        if ticker[len(ticker)-4:].upper() == "USDT":
-            if "-" not in ticker:
-                self.ticker = (ticker[:(len(ticker)-4)] + "-" + ticker[len(ticker)-4:]).upper()
-            else:
-                self.ticker = ticker.upper()
-        else:
-            if "-" not in ticker:
-                self.ticker = (ticker[:(len(ticker)-3)] + "-" + ticker[len(ticker)-3:]).upper()
-            else:
-                self.ticker = ticker.upper()
-        return 
-        
 
 def getGreatestSpread(coin=None):
     """
@@ -468,13 +467,13 @@ def getGreatestSpread(coin=None):
     
     # query prices
     t1 = time.time()
-    # cb_buy_price, cb_sell_price = coinbase.getprice(coin)
+    cb_buy_price, cb_sell_price = coinbase.getprice(coin)
     kr_buy_price, kr_sell_price = kraken.getprice(coin)
     cr_buy_price, cr_sell_price = cryptodotcom.getprice(coin)
     ku_buy_price, ku_sell_price = kucoin.getprice(coin)  
     t2 = time.time()
     
-    #display prices
+    # display prices
     # print("Coinbase - buy: {} sell: {}".format(cb_buy_price, cb_sell_price))
     print("Kraken - buy: {} sell: {}".format(kr_buy_price, kr_sell_price))
     print("Crypto.com - buy: {} sell: {}".format(cr_buy_price, cr_sell_price))
@@ -493,19 +492,29 @@ def getGreatestSpread(coin=None):
     low_exchange = exchanges[low_exchange_index]
     high_exchange = exchanges[high_exchange_index]
     
-    #output greatest spread
+    # output greatest spread
     print()
     print("Buy on {} for {}".format(low_exchange.name, min_buy))
     print("Sell on {} for {}".format(high_exchange.name, max_sell))
     print("Profit: {:.2f}".format(max_sell - min_buy))
     
-    return min_buy, max_sell,low_exchange,high_exchange
-
+    return min_buy, max_sell, low_exchange, high_exchange
 
 
 def main():
-    coin1 = Coin("btcusdt")
-    getGreatestSpread(coin1)
+    ticker = "btcusdt"
+    assert (ticker[len(ticker) - 3:].upper() == "USD") or (ticker[len(ticker) - 4:].upper() == "USDT"), "Coin must trade with USDT or USD"
+    if ticker[len(ticker) - 4:].upper() == "USDT":
+        if "-" not in ticker:
+            ticker = (ticker[:(len(ticker) - 4)] + "-" + ticker[len(ticker) - 4:]).upper()
+        else:
+            ticker = ticker.upper()
+    else:
+        if "-" not in ticker:
+            ticker = (ticker[:(len(ticker) - 3)] + "-" + ticker[len(ticker) - 3:]).upper()
+        else:
+            ticker = ticker.upper()
+    getGreatestSpread(ticker)
     
     # get all prices for Kucoin
     """
