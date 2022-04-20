@@ -69,7 +69,7 @@ class Exchange:
             None.
         ------------------------------------
         """
-        self.coins[coin] = 0
+        print("Error (" + self.name + ".addCoin): No method to add coin to this exchange yet.")
         return
 
     def removeCoin(self, coin):
@@ -161,15 +161,13 @@ class Gemini(Exchange):
             TODO: what are we returning?
         ------------------------------------
         """
-        pair = coin.replace("-", "")
-        pair = pair.lower()
         try:
-            resp = requests.get('https://api.gemini.com/v1/pubticker/' + pair)
+            resp = requests.get('https://api.gemini.com/v1/pubticker/' + coin)
         except:
-            print("Error occured fetching Gemini prices for "+ pair)
+            print("Error occured fetching Gemini prices for "+ coin)
         resp = resp.text.split("\"")
         if resp[7]=="Bad Request":
-            print("The pair "+ pair+" does not exist on Gemini")
+            print("The pair "+ coin+" does not exist on Gemini")
             buy = -1
             sell = -1
         else:
@@ -192,6 +190,12 @@ class Gemini(Exchange):
     
     def queryAllHoldings(self):
         # TODO:
+        return
+    
+    def addCoin(self, coin):
+        assert isinstance(coin, str), "Error (" + self.name + ".addCoin): coin must be string"
+        self.coins[coin] = (-1, -1)
+        print("Added " + coin + " to " + self.name)
         return
 
 """------------------------------------
@@ -229,11 +233,10 @@ class Kraken(Exchange):
             TODO: what are we returning?
         ------------------------------------
         """
-        pair = coin.replace("-", "")
         try:
-            resp = requests.get('https://api.kraken.com/0/public/Ticker?pair=' + pair)
+            resp = requests.get('https://api.kraken.com/0/public/Ticker?pair=' + coin)
         except:
-            print("Error occured fetching Kraken prices for "+ pair)
+            print("Error occured fetching Kraken prices for "+ coin)
         resp = resp.text.split("\"")
         buy = float(resp[9])
         sell = float(resp[17])
@@ -258,6 +261,12 @@ class Kraken(Exchange):
     
     def queryAllHoldings(self):
         # TODO:
+        return
+    
+    def addCoin(self, coin):
+        assert isinstance(coin, str), "Error (" + self.name + ".addCoin): coin must be string"
+        self.coins[coin] = (-1, -1)
+        print("Added " + coin + " to " + self.name)
         return
 
 """------------------------------------
@@ -285,7 +294,6 @@ class CryptoDotCom(Exchange):
         return 
     
     def getprice(self, coin):
-        pair = coin.replace("-", "_")
         try:
             resp = requests.get("https://api.crypto.com/v2/public/get-ticker?instrument_name=" + pair)
         except:
@@ -313,6 +321,20 @@ class CryptoDotCom(Exchange):
     def queryAllHoldings(self):
         # TODO:
         return
+    
+    def addCoin(self, coin):
+        assert isinstance(coin, str), "Error (" + self.name + ".addCoin): coin must be string"
+        
+        if coin[-4:].lower() == "usdt":
+            newcoin = coin[:-4] + "_" + coin[-4:]
+        elif coin[-3:].lower() == "usd":
+            newcoin = coin[:-3] + "_" + coin[-3:]
+        else:
+            print("Error: coin name: " + coin)
+        
+        self.coins[newcoin] = (-1, -1)
+        print("Added " + newcoin + " to " + self.name)
+        return
 
 """------------------------------------
 Child of Exchange, connects to coinbase.com
@@ -339,22 +361,17 @@ class Coinbase(Exchange):
         return 
 
     def getprice(self, coin):
-        # fix ticker symbol
-        if "-" not in coin:
-            pair = coin[:3] + "-" + coin[3:]
-        else:
-            pair = coin
         # query price
         try:
-            buy = requests.get("https://api.coinbase.com/v2/prices/" + pair + "/buy")
-            sell = requests.get("https://api.coinbase.com/v2/prices/" + pair + "/sell")
+            buy = requests.get("https://api.coinbase.com/v2/prices/" + coin + "/buy")
+            sell = requests.get("https://api.coinbase.com/v2/prices/" + coin + "/sell")
         except:
-            print("Error occured fetching Coinbase prices for "+ pair)
+            print("Error occured fetching Coinbase prices for "+ coin)
         # standardize output
         buy = buy.text.split("\"")
         sell = sell.text.split("\"")
         if buy[-2] or sell[-2]=="Invalid Currency":
-            print("The pair "+ pair+" does not exist on Coinbase")
+            print("The pair "+ coin +" does not exist on Coinbase")
             buy = -1
             sell = -1
         else:
@@ -379,6 +396,20 @@ class Coinbase(Exchange):
     
     def queryAllHoldings(self):
         # TODO:
+        return
+
+    def addCoin(self, coin):
+        assert isinstance(coin, str), "Error (" + self.name + ".addCoin): coin must be string"
+        
+        if coin[-4:].lower() == "usdt":
+            newcoin = coin[:-4] + "-" + coin[-4:]
+        elif coin[-3:].lower() == "usd":
+            newcoin = coin[:-3] + "-" + coin[-3:]
+        else:
+            print("Error: coin name: " + coin)
+        
+        self.coins[newcoin] = (-1, -1)
+        print("Added " + newcoin + " to " + self.name)
         return
 
 """------------------------------------
@@ -406,17 +437,14 @@ class Kucoin(Exchange):
         return 
     
     def getprice(self, coin):
-        if "-" not in coin:
-            pair = coin[:3] + "-" + coin[3:]
-        else:
-            pair = coin
         try:
-            resp = requests.get("https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=" + pair)  
+            resp = requests.get("https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=" + coin)  
         except:
-            print("Error occured fetching Kucoin prices for "+ pair)
+            print("Error occured fetching Kucoin prices for "+ coin)
         resp = resp.text.split("\"")
         buy = float(resp[15])
         return buy, buy
+    #TODO: wait why does kucoin not have a buy and a sell?
     
     def getAllPrices(self):
         """
@@ -469,6 +497,19 @@ class Kucoin(Exchange):
         # TODO:
         return
 
+    def addCoin(self, coin):
+        assert isinstance(coin, str), "Error (" + self.name + ".addCoin): coin must be string"
+        
+        if coin[-4:].lower() == "usdt":
+            newcoin = coin[:-4] + "-" + coin[-4:]
+        elif coin[-3:].lower() == "usd":
+            newcoin = coin[:-3] + "-" + coin[-3:]
+        else:
+            print("Error: coin name: " + coin)
+        
+        self.coins[newcoin] = (-1, -1)
+        print("Added " + newcoin + " to " + self.name)
+        return
 
 
 def getGreatestSpread(coin=None):
@@ -563,4 +604,51 @@ def main():
     """
 
     
-main()
+
+def initialize():
+    """
+    -create exchange objects
+    -read in csv
+    -populate exchange objects
+    -call first-time price update (?) or don't idc
+    
+    """
+
+    #create exchange objects
+    gemini = Gemini()
+    coinbase = Coinbase()
+    kraken = Kraken()
+    cryptodotcom = CryptoDotCom()
+    kucoin = Kucoin()
+    
+    fv = open("coins1.csv", 'r', encoding="UTF-8")
+    fv.readline()
+    line = fv.readline()
+    while line != "":
+        parts = line.strip().split(",")
+        ticker = parts[0] #max don't ever say I can't make an intermediary variable.
+        if ticker == "XYOUSDT":
+            print("STOP!")
+        if parts[1] == "1":
+            gemini.addCoin(ticker)
+        if parts[2] == "1":
+            coinbase.addCoin(ticker)
+        if parts[3] == "1":
+            kraken.addCoin(ticker)
+        if parts[4] == "1":
+            cryptodotcom.addCoin(ticker)
+        if parts[5] == "1":
+            kucoin.addCoin(ticker)
+        line = fv.readline()
+    fv.close()
+
+    print("\n\nAll coins added.\n\n")
+    
+    for key in gemini.coins:
+        print(key + " -> " + str(gemini.coins[key]))
+    
+
+    
+    
+
+initialize()
