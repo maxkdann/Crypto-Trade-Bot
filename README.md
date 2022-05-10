@@ -1,2 +1,3 @@
 # Crypto-Trade-Bot
-This project is taken on in an attempt to identify arbitrage opportunities across crypto exchanges. We are trying this not because we have too much time, in fact we are both quite busy, but instead because we're interested in crypto, need some stuff to throw on the resume, and don't sleep.
+Authors: Max Dann and Trenton Whillans
+This project was taken on in our spare time as an attempt to identify arbitrage opportunities across crypto exchanges. It is built in python and leverages the REST APIs of 6 different crypto exchanges. It is currently a work in progress.
